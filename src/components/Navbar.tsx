@@ -100,7 +100,7 @@ export default function Navbar() {
             Sign In
           </Link>
           <Link
-            href="/#scholarships"
+            href="/eligibility"
             className="text-sm font-semibold px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
             Check My Eligibility
@@ -169,7 +169,7 @@ export default function Navbar() {
               Sign In
             </Link>
             <Link
-              href="/#scholarships"
+              href="/eligibility"
               className="text-center py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
               onClick={() => setMobileOpen(false)}
             >
