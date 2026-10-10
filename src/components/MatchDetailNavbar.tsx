@@ -89,7 +89,7 @@ export default function MatchDetailNavbar() {
               Universities
             </Link>
             <Link
-              href="/#eligibility"
+              href="/eligibility"
               className="hover:text-blue-600 transition-colors"
             >
               Eligibility Checker
@@ -216,7 +216,7 @@ export default function MatchDetailNavbar() {
               Universities
             </Link>
             <Link
-              href="/#eligibility"
+              href="/eligibility"
               className="block px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg"
             >
               Eligibility Checker

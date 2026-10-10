@@ -318,5 +318,64 @@ export const universitiesData: University[] = [
     popularPrograms: ["Information Technology", "Biomedical Science", "Law", "Environmental Engineering", "Commerce"],
     description: "Australia's top-ranked higher education institution, situated in one of the world's most liveable cities, leading in global scientific discovery.",
     features: ["Ranked Australia #1", "Post-Study Work Rights in Australia", "Comprehensive Health & Housing Cover"]
+  },
+  {
+    id: "gatech",
+    name: "Georgia Institute of Technology",
+    shortName: "Georgia Tech",
+    slug: "georgia-institute-of-technology",
+    officialWebsite: "https://www.gatech.edu",
+    admissionsUrl: "https://grad.gatech.edu/apply",
+    country: "United States",
+    city: "Atlanta, Georgia",
+    countryFlag: "🇺🇸",
+    qsRank: 33,
+    acceptanceRate: "16%",
+    averageTuition: "$31,370 / yr (Fully Covered via GRA/GTA)",
+    type: "Public Research University",
+    logoInitial: "GT",
+    logoBg: "bg-[#003057]",
+    logoTextColor: "text-white",
+    badge: "QS World #33 · Top 5 Engineering",
+    flagshipScholarship: {
+      name: "Graduate Research Assistantship (GRA)",
+      coverage: "100% Tuition Waiver + $2,400/mo Living Stipend",
+      type: "Fully Funded",
+      deadline: "Jan 15, 2027",
+      description: "Includes full out-of-state tuition coverage, comprehensive health insurance subsidy, and bi-weekly research stipend."
+    },
+    popularPrograms: ["Computer Science", "Computing Systems", "Machine Learning", "Robotics", "Aerospace Engineering"],
+    description: "Georgia Tech is a top-tier public research university in Atlanta, world-renowned for computing, technology leadership, and engineering excellence.",
+    features: ["Top 5 Ranked CS Program", "100% Tuition Waiver for GRA/GTA", "Atlanta Tech Hub Connectivity"]
+  },
+  {
+    id: "umich",
+    name: "University of Michigan",
+    shortName: "U-Michigan",
+    slug: "university-of-michigan",
+    officialWebsite: "https://umich.edu",
+    admissionsUrl: "https://rackham.umich.edu/admissions",
+    country: "United States",
+    city: "Ann Arbor, Michigan",
+    countryFlag: "🇺🇸",
+    qsRank: 44,
+    acceptanceRate: "18%",
+    averageTuition: "$53,200 / yr (Merit Aid Eligible)",
+    type: "Public Research University",
+    logoInitial: "UM",
+    logoBg: "bg-[#00274C]",
+    logoTextColor: "text-[#FFCB05]",
+    badge: "QS World #44 · Top Public Ivy",
+    flagshipScholarship: {
+      name: "UMSI Merit Fellowship Award",
+      coverage: "$20,000 / Year Award + Departmental Endowment",
+      type: "Partial Funding",
+      deadline: "Jan 15, 2027",
+      description: "Direct department endowment scholarship applied automatically upon early admission deadline compliance."
+    },
+    popularPrograms: ["Master of Science in Information (MSI)", "Data Science", "Computer Science", "Human-Computer Interaction"],
+    description: "The University of Michigan is a preeminent public research university recognized globally for academic rigor and research impact.",
+    features: ["Top 5 Information School", "Massive Research Spending ($1.8B+)", "Extensive Global Alumni Base"]
   }
 ];
+
