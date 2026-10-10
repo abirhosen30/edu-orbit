@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import AccountMenu from "@/components/AccountMenu";
+import type { UniversityMatch } from "@/data/matchedUniversities";
 
 interface EligibilityNavbarProps {
   shortlistCount?: number;
+  savedUniversities?: Pick<UniversityMatch, "id" | "name" | "shortName" | "location">[];
+  onRemoveSavedUniversity?: (id: string) => void;
   activeSubTab?: string;
   onSubTabChange?: (tab: string) => void;
   searchQuery?: string;
@@ -13,6 +17,8 @@ interface EligibilityNavbarProps {
 
 export default function EligibilityNavbar({
   shortlistCount = 6,
+  savedUniversities = [],
+  onRemoveSavedUniversity,
   activeSubTab = "overview",
   onSubTabChange,
   searchQuery = "",
@@ -20,6 +26,7 @@ export default function EligibilityNavbar({
 }: EligibilityNavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
 
   const subTabs = [
     {
@@ -34,7 +41,8 @@ export default function EligibilityNavbar({
     },
     {
       id: "universities",
-      label: "Matched Universities (14)",
+      label: "Matched Universities",
+      href: "/universities",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
@@ -44,7 +52,8 @@ export default function EligibilityNavbar({
     },
     {
       id: "scholarships",
-      label: "Matched Scholarships (8)",
+      label: "Matched Scholarships",
+      href: "/#scholarships",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -53,7 +62,8 @@ export default function EligibilityNavbar({
     },
     {
       id: "compare",
-      label: "Shortlist & Compare (4)",
+      label: `Shortlist & Compare (${shortlistCount})`,
+      href: "/shortlist",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -62,7 +72,7 @@ export default function EligibilityNavbar({
     },
     {
       id: "deadlines",
-      label: "Deadlines & Tasks (3)",
+      label: "Deadlines & Tasks",
       href: "/deadlines",
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,24 +208,72 @@ export default function EligibilityNavbar({
               </div>
 
               {/* Bookmark Ribbon */}
-              <button
-                type="button"
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors hidden sm:flex"
-                aria-label="Saved Bookmarks"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setBookmarksOpen((open) => !open)}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label={`Saved Bookmarks (${shortlistCount})`}
+                  aria-expanded={bookmarksOpen}
+                  aria-controls="saved-bookmarks"
+                >
+                  <svg className="w-5 h-5" fill={shortlistCount ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                </button>
+
+                {bookmarksOpen && (
+                  <div
+                    id="saved-bookmarks"
+                    className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl z-50"
+                  >
+                    <div className="mb-2 flex items-center justify-between border-b border-gray-100 pb-2">
+                      <h2 className="text-sm font-bold text-gray-900">Saved Universities</h2>
+                      <span className="text-xs font-semibold text-gray-500">
+                        {savedUniversities.length} saved
+                      </span>
+                    </div>
+                    {savedUniversities.length > 0 ? (
+                      <ul className="max-h-80 space-y-1 overflow-y-auto">
+                        {savedUniversities.map((university) => (
+                          <li
+                            key={university.id}
+                            className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-gray-50"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-gray-900">
+                                {university.name}
+                              </p>
+                              <p className="text-xs text-gray-500">{university.location}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onRemoveSavedUniversity?.(university.id)}
+                              className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                              aria-label={`Remove ${university.name} from saved universities`}
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-2 py-4 text-center text-sm text-gray-500">
+                        No saved universities yet. Use “Save to Shortlist” on a match to add one.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Shortlist Badge Pill Button matching Figma */}
               <Link
-                href="/match-detail"
+                href="/shortlist"
                 className="flex items-center gap-1.5 bg-sky-50/80 hover:bg-sky-100 text-blue-700 border border-blue-200/80 px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-2xs"
               >
                 <svg className="w-3.5 h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,15 +290,7 @@ export default function EligibilityNavbar({
                 </span>
               </Link>
 
-              {/* Profile Avatar */}
-              <div className="relative shrink-0">
-                <div className="w-8 h-8 rounded-full overflow-hidden ring-1.5 ring-blue-500/30 flex items-center justify-center bg-slate-100">
-                  {/* Styled avatar representing Rahul / user */}
-                  <div className="w-full h-full bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-500 flex items-center justify-center text-white text-xs font-bold">
-                    RS
-                  </div>
-                </div>
-              </div>
+              <AccountMenu />
 
               {/* Mobile hamburger menu */}
               <button

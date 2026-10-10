@@ -7,12 +7,15 @@ import DashboardFooter from "@/components/DashboardFooter";
 import MilestoneCards from "./MilestoneCards";
 import UniversityDeadlineCard from "./UniversityDeadlineCard";
 import DeadlinesSidebar from "./DeadlinesSidebar";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+import { sampleMatchedUniversities } from "@/data/matchedUniversities";
 import {
   trackerMetricsData,
   sampleUniversitiesDeadlines,
-  UniversityDeadline,
   MilestoneItem,
 } from "@/data/deadlinesTracker";
+
+const emptyShortlist: string[] = [];
 
 export default function DeadlinesTrackerClient() {
   // Navigation & Search state
@@ -30,8 +33,17 @@ export default function DeadlinesTrackerClient() {
   const [showCodesModal, setShowCodesModal] = useState(false);
 
   // Custom added milestones state
-  const [universitiesData, setUniversitiesData] = useState<UniversityDeadline[]>(
+  const [universitiesData, setUniversitiesData, storageError] = useBrowserStorage(
+    "eduorbit_deadline_milestones",
     sampleUniversitiesDeadlines
+  );
+  const [shortlistedIds, setShortlistedIds] = useBrowserStorage(
+    "eduorbit_university_shortlist",
+    emptyShortlist
+  );
+  const [mutationError, setMutationError] = useState("");
+  const savedUniversities = sampleMatchedUniversities.filter((university) =>
+    shortlistedIds.includes(university.id)
   );
 
   // New Milestone Form State
@@ -52,26 +64,64 @@ export default function DeadlinesTrackerClient() {
       title: newMilestoneTitle,
       statusBadge: { text: "Custom Added", color: "blue" },
       details: "Self-scheduled deadline step.",
-      deadlineText: newMilestoneDate || "TBD",
-      rightBadge: { text: newMilestoneDate || "Upcoming" },
+      deadlineText: newMilestoneDate
+        ? new Date(`${newMilestoneDate}T12:00:00`).toLocaleDateString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
+        : "TBD",
+      deadlineDate: newMilestoneDate || undefined,
+      isCustom: true,
+      rightBadge: { text: newMilestoneDate ? "Scheduled" : "Upcoming" },
       category: newMilestoneCategory,
     };
 
-    setUniversitiesData((prev) =>
-      prev.map((uni) => {
-        if (uni.id === newMilestoneUni) {
-          return {
-            ...uni,
-            milestones: [newItem, ...uni.milestones],
-          };
-        }
-        return uni;
-      })
-    );
+      try {
+        setUniversitiesData((prev) =>
+          prev.map((uni) => {
+            if (uni.id === newMilestoneUni) {
+              return {
+                ...uni,
+                milestones: [newItem, ...uni.milestones],
+              };
+            }
+            return uni;
+          })
+        );
+        setMutationError("");
+      } catch {
+        setMutationError("Could not save the milestone in this browser. Check storage settings and try again.");
+        return;
+      }
 
     setNewMilestoneTitle("");
     setNewMilestoneDate("");
     setShowAddMilestoneModal(false);
+  };
+
+  const handleRemoveMilestone = (milestoneId: string) => {
+    try {
+      setUniversitiesData((current) =>
+        current.map((university) => ({
+          ...university,
+          milestones: university.milestones.filter(
+            (milestone) => milestone.id !== milestoneId
+          ),
+        }))
+      );
+      setMutationError("");
+    } catch {
+      setMutationError("Could not remove the milestone. Check browser storage settings and try again.");
+    }
+  };
+
+  const handleRemoveShortlist = (id: string) => {
+    try {
+      setShortlistedIds((current) => current.filter((savedId) => savedId !== id));
+    } catch {
+      setMutationError("Could not update your university shortlist. Check browser storage settings and try again.");
+    }
   };
 
   // Filter Universities and their milestones
@@ -109,7 +159,9 @@ export default function DeadlinesTrackerClient() {
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col font-sans antialiased">
       {/* 1. Top Navbar matching Image 1 */}
       <EligibilityNavbar
-        shortlistCount={4}
+        shortlistCount={shortlistedIds.length}
+        savedUniversities={savedUniversities}
+        onRemoveSavedUniversity={handleRemoveShortlist}
         activeSubTab="deadlines"
         searchQuery={searchQuery}
         onSearchChange={(q) => setSearchQuery(q)}
@@ -278,10 +330,23 @@ export default function DeadlinesTrackerClient() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* LEFT 8 COLUMNS: University Milestone Cards */}
           <section className="lg:col-span-8 space-y-4">
+            {storageError || mutationError ? (
+              <p
+                role="alert"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              >
+                {mutationError || storageError}
+              </p>
+            ) : null}
+
             {viewMode === "board" ? (
               filteredUniversities.length > 0 ? (
                 filteredUniversities.map((uni) => (
-                  <UniversityDeadlineCard key={uni.id} item={uni} />
+                  <UniversityDeadlineCard
+                    key={uni.id}
+                    item={uni}
+                    onRemoveMilestone={handleRemoveMilestone}
+                  />
                 ))
               ) : (
                 <div className="bg-white rounded-xl border border-gray-200 p-8 text-center space-y-3">
@@ -305,38 +370,83 @@ export default function DeadlinesTrackerClient() {
               <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5 shadow-2xs">
                 <div className="flex items-center justify-between border-b pb-3">
                   <h3 className="font-extrabold text-sm text-gray-900">
-                    Chronological Timeline (Nov 2024 – May 2025)
+                    Chronological Timeline
                   </h3>
-                  <span className="text-xs text-gray-500">Sorted by deadline date</span>
+                  <span className="text-xs text-gray-500">
+                    {universitiesData.reduce(
+                      (total, university) =>
+                        total +
+                        university.milestones.filter(
+                          (milestone) => milestone.deadlineDate || milestone.deadlineText
+                        ).length,
+                      0
+                    )}{" "}
+                    dated milestones
+                  </span>
                 </div>
 
                 <div className="space-y-4">
-                  {[
-                    { date: "Nov 15, 2024", title: "Stanford Knight-Hennessy Final Essay & Video", days: "18 Days Left", urgent: true },
-                    { date: "Nov 20, 2024", title: "Georgia Tech SOP & Faculty Alignment", days: "23 Days Left", urgent: false },
-                    { date: "Nov 28, 2024", title: "TUM Uni-Assist VPD Certificate Expected", days: "31 Days Left", urgent: false },
-                    { date: "Dec 01, 2024", title: "DAAD Master Studies Scholarship Dossier Filing", days: "34 Days Left", urgent: false },
-                    { date: "Dec 03, 2024", title: "Stanford MS CS Departmental Application", days: "36 Days Left", urgent: false },
-                    { date: "Dec 15, 2024", title: "Georgia Tech Priority Fellowship Deadline", days: "48 Days Left", urgent: false },
-                    { date: "Jan 15, 2025", title: "University of Michigan MSI Scholarship Round 1", days: "79 Days Left", urgent: false },
-                    { date: "Feb 07, 2025", title: "Stanford KHS Immersion Weekend Finalist Notification", days: "102 Days Left", urgent: false },
-                    { date: "May 31, 2025", title: "TUMonline Direct Application Submission Closes", days: "216 Days Left", urgent: false },
-                  ].map((row, idx) => (
-                    <div key={idx} className="flex items-center gap-4 text-xs">
-                      <div className="w-24 font-bold text-gray-700 shrink-0">{row.date}</div>
+                  {universitiesData
+                    .flatMap((university) =>
+                      university.milestones.flatMap((milestone) => {
+                        const timestamp = milestone.deadlineDate
+                          ? new Date(`${milestone.deadlineDate}T23:59:59`).getTime()
+                          : milestone.deadlineText
+                            ? Date.parse(milestone.deadlineText)
+                            : Number.NaN;
+                        return Number.isNaN(timestamp)
+                          ? []
+                          : [{ university, milestone, timestamp }];
+                      })
+                    )
+                    .sort((a, b) => a.timestamp - b.timestamp)
+                    .map(({ university, milestone, timestamp }) => {
+                      const days = Math.ceil(
+                        (timestamp - new Date().setHours(0, 0, 0, 0)) /
+                          (1000 * 60 * 60 * 24)
+                      );
+                      const deadlineLabel = new Date(timestamp).toLocaleDateString(
+                        undefined,
+                        { month: "short", day: "numeric", year: "numeric" }
+                      );
+                      const statusLabel =
+                        days < 0
+                          ? `${Math.abs(days)} days overdue`
+                          : days === 0
+                            ? "Due today"
+                            : `${days} days left`;
+                      return (
+                    <div key={milestone.id} className="flex items-center gap-4 text-xs">
+                      <div className="w-28 font-bold text-gray-700 shrink-0">{deadlineLabel}</div>
                       <div className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0"></div>
-                      <div className="flex-1 bg-slate-50 border border-slate-100 rounded-lg p-2.5 flex items-center justify-between">
-                        <span className="font-semibold text-gray-900">{row.title}</span>
+                      <div className="flex-1 bg-slate-50 border border-slate-100 rounded-lg p-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <span className="font-semibold text-gray-900">
+                          {milestone.title}
+                          <span className="ml-1 font-normal text-gray-500">· {university.shortName}</span>
+                        </span>
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                            row.urgent ? "bg-rose-600 text-white" : "bg-slate-200 text-gray-700"
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded self-start sm:self-auto ${
+                            days <= 7 ? "bg-rose-600 text-white" : days < 0 ? "bg-slate-200 text-gray-500" : "bg-blue-100 text-blue-800"
                           }`}
                         >
-                          {row.days}
+                          {statusLabel}
                         </span>
                       </div>
                     </div>
-                  ))}
+                      );
+                    })}
+                  {universitiesData.every((university) =>
+                    university.milestones.every(
+                      (milestone) =>
+                        !milestone.deadlineDate &&
+                        (!milestone.deadlineText ||
+                          Number.isNaN(Date.parse(milestone.deadlineText)))
+                    )
+                  ) ? (
+                    <p className="py-6 text-center text-sm text-gray-500">
+                      No dated milestones yet. Add a milestone with a deadline to see it here.
+                    </p>
+                  ) : null}
                 </div>
               </div>
             )}

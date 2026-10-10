@@ -1,6 +1,70 @@
+'use client';
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import {
+  EduOrbitAccount,
+  readEduOrbitAccounts,
+  readStudentProfile,
+  SESSION_STORAGE_KEY,
+} from "@/lib/eduOrbitAccount";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
 
 export default function SignInPage() {
+  const router = useRouter();
+  const [, setSession] = useBrowserStorage<unknown>(SESSION_STORAGE_KEY, null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    let matchedUser: EduOrbitAccount | undefined;
+    try {
+      const users = readEduOrbitAccounts();
+      matchedUser = users.find(
+        (user) =>
+          user.email.toLowerCase() === email.trim().toLowerCase() &&
+          user.password === password
+      );
+    } catch (storageFailure) {
+      setError(
+        storageFailure instanceof Error
+          ? storageFailure.message
+          : "Could not read saved accounts from this browser."
+      );
+      return;
+    }
+
+    if (!matchedUser) {
+      setError("Invalid email or password. Please check your details or create an account.");
+      return;
+    }
+
+    try {
+      const savedProfile = readStudentProfile(matchedUser.email);
+      setSession({
+        email: matchedUser.email,
+        name: savedProfile?.name || matchedUser.name,
+      });
+      const requestedPath = new URLSearchParams(window.location.search).get("next");
+      const returnTo =
+        requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+          ? requestedPath
+          : "/profile";
+      router.push(returnTo);
+    } catch (storageFailure) {
+      setError(
+        storageFailure instanceof Error
+          ? storageFailure.message
+          : "Could not sign in. Please try again."
+      );
+    }
+  };
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-slate-50 px-4 py-10 sm:px-6">
       <div
@@ -60,9 +124,7 @@ export default function SignInPage() {
             </Link>
 
             <div className="mt-8 lg:mt-0">
-              <p className="text-sm font-semibold text-blue-600">
-                Welcome back
-              </p>
+              <p className="text-sm font-semibold text-blue-600">Welcome back</p>
               <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                 Sign in to EduOrbit
               </h2>
@@ -71,7 +133,7 @@ export default function SignInPage() {
               </p>
             </div>
 
-            <div className="mt-8 space-y-5">
+            <form className="mt-8 space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label
                   htmlFor="email"
@@ -85,6 +147,9 @@ export default function SignInPage() {
                   type="email"
                   autoComplete="email"
                   placeholder="you@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
                   className="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
@@ -102,25 +167,34 @@ export default function SignInPage() {
                   type="password"
                   autoComplete="current-password"
                   placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
                   className="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                 />
               </div>
 
+              {error ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </p>
+              ) : null}
+
               <button
-                type="button"
+                type="submit"
                 className="inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md shadow-blue-600/20 transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/25"
               >
                 Sign in
               </button>
-            </div>
+            </form>
 
             <p className="mt-8 text-center text-sm text-slate-500">
               New to EduOrbit?{" "}
               <Link
-                href="/#scholarships"
+                href="/sign-up"
                 className="font-semibold text-blue-600 hover:text-blue-700 hover:underline"
               >
-                Explore scholarships
+                Create an account
               </Link>
             </p>
           </div>

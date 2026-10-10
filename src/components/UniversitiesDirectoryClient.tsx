@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { universitiesData } from "@/data/universities";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
 
 const countryTabs = [
   "All",
@@ -15,9 +16,31 @@ const countryTabs = [
   "Australia",
 ];
 
+const emptyShortlist: string[] = [];
+
 export default function UniversitiesDirectoryClient() {
   const [selectedCountry, setSelectedCountry] = useState("All");
   const [search, setSearch] = useState("");
+  const [savedIds, setSavedIds, storageError] = useBrowserStorage(
+    "eduorbit_university_shortlist",
+    emptyShortlist
+  );
+  const [writeError, setWriteError] = useState("");
+
+  const toggleShortlist = (id: string) => {
+    try {
+      setSavedIds((current) =>
+        current.includes(id)
+          ? current.filter((savedId) => savedId !== id)
+          : [...current, id]
+      );
+      setWriteError("");
+    } catch {
+      setWriteError(
+        "Could not update your shortlist. Check browser storage settings and try again."
+      );
+    }
+  };
 
   const filtered = universitiesData.filter((uni) => {
     const matchesCountry =
@@ -34,6 +57,12 @@ export default function UniversitiesDirectoryClient() {
 
   return (
     <div className="space-y-6">
+      {storageError || writeError ? (
+        <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {writeError || storageError}
+        </p>
+      ) : null}
+
       {/* Search and Filter Controls */}
       <div className="w-full bg-white p-4 sm:p-5 rounded-2xl border border-gray-200/90 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         {/* Country filter pills */}
@@ -211,6 +240,19 @@ export default function UniversitiesDirectoryClient() {
 
             {/* Action Row */}
             <div className="pt-2 flex flex-col sm:flex-row items-center gap-2 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => toggleShortlist(uni.id)}
+                aria-pressed={savedIds.includes(uni.id)}
+                className={`w-full sm:flex-1 py-2.5 px-4 rounded-xl border text-xs font-bold transition-all ${
+                  savedIds.includes(uni.id)
+                    ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    : "border-gray-200 bg-white text-gray-800 hover:border-blue-500 hover:text-blue-600"
+                }`}
+              >
+                {savedIds.includes(uni.id) ? "✓ Saved to Shortlist" : "☆ Save to Shortlist"}
+              </button>
+
               <a
                 href={uni.officialWebsite}
                 target="_blank"

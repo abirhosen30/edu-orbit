@@ -2,13 +2,17 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { universitiesData } from "@/data/universities";
 import {
   scholarshipFiltersEvent,
   type ScholarshipFilters,
 } from "@/lib/scholarshipFilters";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+import { isEduOrbitSession, SESSION_STORAGE_KEY } from "@/lib/eduOrbitAccount";
 
 type FundingBadge = "Fully Funded" | "Partial Funding";
+const emptyBookmarks: number[] = [];
 
 interface Scholarship {
   id: number;
@@ -326,12 +330,21 @@ function BookmarkIcon({ filled }: { filled: boolean }) {
 }
 
 export default function ScholarshipsSection() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("All");
   const [sortBy, setSortBy] = useState(sortOptions[0]);
-  const [bookmarked, setBookmarked] = useState<Set<number>>(new Set());
+  const [session] = useBrowserStorage<unknown>(SESSION_STORAGE_KEY, null);
+  const signedIn = isEduOrbitSession(session);
+  const [bookmarkedIds, setBookmarkedIds, bookmarkStorageError] = useBrowserStorage(
+    "eduorbit_scholarship_bookmarks",
+    emptyBookmarks
+  );
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [heroFilters, setHeroFilters] = useState<ScholarshipFilters | null>(
     null
   );
+  const [bookmarkWriteError, setBookmarkWriteError] = useState("");
+  const bookmarked = new Set(bookmarkedIds);
 
   useEffect(() => {
     const handleFilterSelection = (event: Event) => {
@@ -346,20 +359,31 @@ export default function ScholarshipsSection() {
   }, []);
 
   const toggleBookmark = (id: number) => {
-    setBookmarked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    if (!signedIn) {
+      router.push("/sign-in?next=%2F%23scholarships");
+      return;
+    }
+
+    try {
+      setBookmarkedIds((current) =>
+        current.includes(id)
+          ? current.filter((savedId) => savedId !== id)
+          : [...current, id]
+      );
+      setBookmarkWriteError("");
+    } catch {
+      setBookmarkWriteError(
+        "Could not update saved scholarships. Check browser storage settings and try again."
+      );
+    }
   };
 
   const filtered = scholarships.filter((scholarship) => {
     const matchesTab = activeTab === "All" || scholarship.level === activeTab;
-    if (!matchesTab || !heroFilters) return matchesTab;
+    if (!matchesTab || (showSavedOnly && !bookmarked.has(scholarship.id))) {
+      return false;
+    }
+    if (!heroFilters) return true;
 
     const requestedLevel = levelMap[heroFilters.studyLevel];
     const matchesLevel =
@@ -388,11 +412,11 @@ export default function ScholarshipsSection() {
     return 0;
   });
 
-  const displayed = heroFilters ? sorted : sorted.slice(0, 3);
+  const displayed = heroFilters || showSavedOnly ? sorted : sorted.slice(0, 3);
 
   return (
     <section
-      className="w-full bg-white py-20 px-4 sm:px-6 lg:px-8"
+      className="w-full scroll-mt-28 bg-white py-20 px-4 sm:px-6 lg:px-8"
       aria-labelledby="scholarships-heading"
       id="scholarships"
     >
@@ -418,26 +442,46 @@ export default function ScholarshipsSection() {
         {/* Filter Tabs + Sort */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           {/* Tabs */}
-          <div
-            className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit"
-            role="tablist"
-            aria-label="Filter scholarships by level"
-          >
-            {tabs.map((tab) => (
-              <button
-                key={tab}
-                role="tab"
-                aria-selected={activeTab === tab}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === tab
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit"
+              role="tablist"
+              aria-label="Filter scholarships by level"
+            >
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  role="tab"
+                  aria-selected={activeTab === tab}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === tab
+                      ? "bg-white text-blue-600 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-pressed={showSavedOnly}
+              onClick={() => {
+                if (!signedIn) {
+                  router.push("/sign-in?next=%2F%23scholarships");
+                  return;
+                }
+                setShowSavedOnly((current) => !current);
+              }}
+              className={`rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                showSavedOnly
+                  ? "border-blue-600 bg-blue-600 text-white"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-blue-50"
+              }`}
+            >
+              Saved ({signedIn ? bookmarkedIds.length : 0})
+            </button>
           </div>
 
           {/* Sort Dropdown */}
@@ -458,6 +502,19 @@ export default function ScholarshipsSection() {
           </div>
         </div>
 
+        {!signedIn ? (
+          <p className="mb-6 -mt-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+            Sign in or{" "}
+            <Link
+              href="/sign-up?next=%2F%23scholarships"
+              className="font-bold text-blue-700 underline underline-offset-2"
+            >
+              create an account
+            </Link>{" "}
+            to save scholarships and use your bookmarks.
+          </p>
+        ) : null}
+
         {heroFilters && (
           <p className="mb-5 text-sm text-gray-600" role="status">
             {filtered.length > 0
@@ -465,6 +522,20 @@ export default function ScholarshipsSection() {
               : "No scholarships match those filters. Try changing your selections."}
           </p>
         )}
+        {showSavedOnly && displayed.length === 0 ? (
+          <p className="mb-5 text-sm text-gray-600" role="status">
+            No saved scholarships match the selected level or filters. Save one with the bookmark icon to add it here.
+          </p>
+        ) : null}
+
+        {bookmarkStorageError || bookmarkWriteError ? (
+          <p
+            className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+            role="alert"
+          >
+            {bookmarkWriteError || bookmarkStorageError}
+          </p>
+        ) : null}
 
         {/* Scholarship Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -513,15 +584,18 @@ export default function ScholarshipsSection() {
                 </div>
                 {/* Bookmark */}
                 <button
+                  type="button"
                   onClick={() => toggleBookmark(scholarship.id)}
                   aria-label={
-                    bookmarked.has(scholarship.id)
+                    signedIn && bookmarked.has(scholarship.id)
                       ? `Remove ${scholarship.name} from bookmarks`
-                      : `Bookmark ${scholarship.name}`
+                      : signedIn
+                        ? `Bookmark ${scholarship.name}`
+                        : `Sign in to bookmark ${scholarship.name}`
                   }
                   className="shrink-0 ml-2 p-1 rounded-md hover:bg-gray-100 transition-colors"
                 >
-                  <BookmarkIcon filled={bookmarked.has(scholarship.id)} />
+                  <BookmarkIcon filled={signedIn && bookmarked.has(scholarship.id)} />
                 </button>
               </div>
 

@@ -76,7 +76,7 @@ function StarRating({ count }: { count: number }) {
 export default function TestimonialsSection() {
   return (
     <section
-      className="w-full bg-white py-20 px-4 sm:px-6 lg:px-8"
+      className="w-full scroll-mt-28 bg-white py-20 px-4 sm:px-6 lg:px-8"
       aria-labelledby="testimonials-heading"
       id="stories"
     >

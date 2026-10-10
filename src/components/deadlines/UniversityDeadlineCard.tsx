@@ -8,12 +8,14 @@ interface UniversityDeadlineCardProps {
   item: UniversityDeadline;
   onSendReminder?: (milestoneId: string) => void;
   onUploadDraft?: (milestoneId: string) => void;
+  onRemoveMilestone?: (milestoneId: string) => void;
 }
 
 export default function UniversityDeadlineCard({
   item,
   onSendReminder,
   onUploadDraft,
+  onRemoveMilestone,
 }: UniversityDeadlineCardProps) {
   const [reminderSent, setReminderSent] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -310,6 +312,16 @@ export default function UniversityDeadlineCard({
                     </div>
                   )}
                 </div>
+              )}
+              {milestone.isCustom && onRemoveMilestone && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveMilestone(milestone.id)}
+                  className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50"
+                  aria-label={`Remove milestone ${milestone.title}`}
+                >
+                  Remove
+                </button>
               )}
             </div>
           );

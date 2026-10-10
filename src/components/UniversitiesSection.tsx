@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { universitiesData, University } from "@/data/universities";
+import { universitiesData } from "@/data/universities";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+import { isEduOrbitSession, SESSION_STORAGE_KEY } from "@/lib/eduOrbitAccount";
 
 const countryFilters = [
   "All Countries",
@@ -18,9 +20,11 @@ const countryFilters = [
 export default function UniversitiesSection() {
   const [selectedCountry, setSelectedCountry] = useState("All Countries");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUni, setSelectedUni] = useState<University | null>(null);
+  const [session] = useBrowserStorage<unknown>(SESSION_STORAGE_KEY, null);
+  const isSignedIn = isEduOrbitSession(session);
+  const featuredUniversities = useMemo(() => universitiesData.slice(0, 3), []);
 
-  const filteredUniversities = universitiesData.filter((uni) => {
+  const filteredUniversities = featuredUniversities.filter((uni) => {
     const matchesCountry =
       selectedCountry === "All Countries" || uni.country === selectedCountry;
     const matchesSearch =
@@ -38,7 +42,7 @@ export default function UniversitiesSection() {
   return (
     <section
       id="universities"
-      className="w-full py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-slate-50/60 to-white border-t border-gray-100"
+      className="w-full scroll-mt-28 py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-slate-50/60 to-white border-t border-gray-100"
       aria-labelledby="universities-heading"
     >
       <div className="max-w-7xl mx-auto space-y-10">
@@ -46,7 +50,7 @@ export default function UniversitiesSection() {
         <div className="text-center max-w-3xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-semibold px-4 py-1.5 rounded-full">
             <span>🏛️</span>
-            <span>10 Top Global Partner Universities · 100% Verified Portals</span>
+            <span>3 Featured Global Universities · 100% Verified Portals</span>
           </div>
           <h2
             id="universities-heading"
@@ -110,7 +114,7 @@ export default function UniversitiesSection() {
           </div>
         </div>
 
-        {/* 10 Universities Grid */}
+        {/* Three featured universities */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredUniversities.map((uni) => (
             <article
@@ -220,13 +224,13 @@ export default function UniversitiesSection() {
               <div className="p-4 bg-gray-50/80 border-t border-gray-100 flex flex-col sm:flex-row gap-2">
                 {/* Official Website Link */}
                 <a
-                  href={uni.officialWebsite}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={isSignedIn ? uni.officialWebsite : `/sign-in?next=${encodeURIComponent(`/match-detail?university=${uni.id}`)}`}
+                  target={isSignedIn ? "_blank" : undefined}
+                  rel={isSignedIn ? "noopener noreferrer" : undefined}
                   className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 hover:border-blue-400 hover:text-blue-600 text-gray-800 text-xs font-semibold transition-all shadow-2xs group/btn"
-                  title={`Open official website: ${uni.officialWebsite}`}
+                  title={isSignedIn ? `Open official website: ${uni.officialWebsite}` : "Sign in to view university details"}
                 >
-                  <span>Official Website</span>
+                  <span>{isSignedIn ? "Official Website" : "Sign in to view"}</span>
                   <svg
                     className="w-3.5 h-3.5 text-gray-400 group-hover/btn:text-blue-600 transition-colors"
                     fill="none"
@@ -244,7 +248,9 @@ export default function UniversitiesSection() {
 
                 {/* Match Detail or Modal Trigger */}
                 <Link
-                  href={`/match-detail?university=${uni.id}`}
+                  href={isSignedIn
+                    ? `/match-detail?university=${uni.id}`
+                    : `/sign-in?next=${encodeURIComponent(`/match-detail?university=${uni.id}`)}`}
                   className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors shadow-2xs"
                 >
                   <span>Match Analysis</span>

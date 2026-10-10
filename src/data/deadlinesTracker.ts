@@ -17,6 +17,8 @@ export interface MilestoneItem {
     url?: string;
   }[];
   warningNotice?: string;
+  deadlineDate?: string;
+  isCustom?: boolean;
   rightBadge?: {
     text: string;
     subtext?: string;

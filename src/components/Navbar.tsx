@@ -1,7 +1,11 @@
 'use client'
 
-import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import AccountMenu from "@/components/AccountMenu";
+import logo from "../assects/SVG.png";
 
 const navLinks = [
   { label: "Home", href: "/" },
@@ -12,7 +16,44 @@ const navLinks = [
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activeHash, setActiveHash] = useState("");
+
+  useEffect(() => {
+    const syncHash = () => setActiveHash(window.location.hash);
+
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    window.addEventListener("popstate", syncHash);
+
+    return () => {
+      window.removeEventListener("hashchange", syncHash);
+      window.removeEventListener("popstate", syncHash);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pathname !== "/" || !activeHash) return;
+
+    const sectionId = decodeURIComponent(activeHash.slice(1));
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(sectionId)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeHash, pathname]);
+
+  const isActiveLink = (href: string) => {
+    if (href === "/") return pathname === "/" && !activeHash;
+    if (href.startsWith("/#")) {
+      return pathname === "/" && activeHash === href.slice(1);
+    }
+    return pathname === href;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white shadow-sm">
@@ -44,61 +85,63 @@ export default function Navbar() {
           className="flex items-center gap-2 text-blue-600 font-bold text-xl shrink-0"
           aria-label="EduOrbit home"
         >
-          {/* Orbit icon SVG */}
-          <svg
-            className="w-8 h-8"
-            viewBox="0 0 32 32"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <circle cx="16" cy="16" r="4" fill="#2563EB" />
-            <ellipse
-              cx="16"
-              cy="16"
-              rx="14"
-              ry="6"
-              stroke="#2563EB"
-              strokeWidth="2"
-              fill="none"
-              transform="rotate(-30 16 16)"
-            />
-            <ellipse
-              cx="16"
-              cy="16"
-              rx="14"
-              ry="6"
-              stroke="#93C5FD"
-              strokeWidth="1.5"
-              fill="none"
-              transform="rotate(30 16 16)"
-            />
-          </svg>
-          <span>EduOrbit</span>
+          <Image
+            src={logo}
+            alt="EduOrbit logo"
+            width={120}
+            height={32}
+            priority
+            className="h-8 w-auto object-contain"
+          />
         </Link>
 
         {/* Desktop Nav Links */}
         <ul className="hidden md:flex items-center gap-6 text-sm font-medium text-gray-700">
-          {navLinks.map((link) => (
-            <li key={link.href}>
-              <Link
-                href={link.href}
-                className="hover:text-blue-600 transition-colors"
-              >
-                {link.label}
-              </Link>
-            </li>
-          ))}
+          {navLinks.map((link) => {
+            const active = isActiveLink(link.href);
+
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  aria-current={active ? "page" : undefined}
+                  onClick={() => {
+                    if (link.href.startsWith("/#")) {
+                      const hash = link.href.slice(1);
+                      setActiveHash(hash);
+                      if (pathname === "/" && activeHash === hash) {
+                        document.getElementById(hash.slice(1))?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                      }
+                    } else if (link.href === "/") {
+                      setActiveHash("");
+                      if (pathname === "/") {
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }
+                    }
+                    setMobileOpen(false);
+                  }}
+                  className={[
+                    "transition-colors relative",
+                    active
+                      ? "text-blue-600 font-semibold"
+                      : "text-gray-700 hover:text-blue-600",
+                  ].join(" ")}
+                >
+                  <span className={active ? "after:absolute after:-bottom-1 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-blue-600" : ""}>
+                    {link.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
 
         {/* Desktop CTA Buttons */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/sign-in"
-            className="text-sm font-medium px-4 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition-colors"
-          >
-            Sign In
-          </Link>
+          <AccountMenu />
           <Link
             href="/eligibility"
             className="text-sm font-semibold px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -148,26 +191,46 @@ export default function Navbar() {
           className="md:hidden border-t border-gray-100 bg-white px-4 pb-4"
         >
           <ul className="flex flex-col gap-1 mt-2">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="block py-2 px-3 rounded-md text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            {navLinks.map((link) => {
+              const active = isActiveLink(link.href);
+
+              return (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    aria-current={active ? "page" : undefined}
+                    onClick={() => {
+                      if (link.href.startsWith("/#")) {
+                        const hash = link.href.slice(1);
+                        setActiveHash(hash);
+                        if (pathname === "/" && activeHash === hash) {
+                          document.getElementById(hash.slice(1))?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }
+                      } else if (link.href === "/") {
+                        setActiveHash("");
+                        if (pathname === "/") {
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }
+                      }
+                    }}
+                    className={[
+                      "block py-2 px-3 rounded-md transition-colors",
+                      active
+                        ? "bg-blue-50 text-blue-600 font-semibold"
+                        : "text-gray-700 hover:bg-blue-50 hover:text-blue-600",
+                    ].join(" ")}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
           <div className="flex flex-col gap-2 mt-4">
-            <Link
-              href="/sign-in"
-              className="text-center py-2 rounded-lg border border-blue-600 text-blue-600 font-medium hover:bg-blue-50 transition-colors"
-              onClick={() => setMobileOpen(false)}
-            >
-              Sign In
-            </Link>
+            <AccountMenu />
             <Link
               href="/eligibility"
               className="text-center py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"

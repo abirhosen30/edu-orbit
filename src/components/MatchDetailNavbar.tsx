@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import AccountMenu from "@/components/AccountMenu";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+
+const emptyShortlist: string[] = [];
 
 export default function MatchDetailNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [shortlistedIds] = useBrowserStorage(
+    "eduorbit_university_shortlist",
+    emptyShortlist
+  );
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200">
@@ -121,8 +129,8 @@ export default function MatchDetailNavbar() {
             </button>
 
             {/* Bookmark Icon */}
-            <button
-              type="button"
+            <Link
+              href="/shortlist"
               className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors hidden sm:block"
               aria-label="Saved Items"
             >
@@ -139,10 +147,10 @@ export default function MatchDetailNavbar() {
                   d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                 />
               </svg>
-            </button>
+            </Link>
 
             {/* Shortlist Badge */}
-            <div className="hidden sm:flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200/60 px-3 py-1.5 rounded-lg text-xs font-semibold">
+            <Link href="/shortlist" className="hidden sm:flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200/60 px-3 py-1.5 rounded-lg text-xs font-semibold">
               <svg
                 className="w-3.5 h-3.5 text-blue-600"
                 fill="none"
@@ -156,16 +164,10 @@ export default function MatchDetailNavbar() {
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <span>Shortlist (4)</span>
-            </div>
+              <span>Shortlist ({shortlistedIds.length})</span>
+            </Link>
 
-            {/* Profile Avatar */}
-            <div className="relative cursor-pointer">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-100">
-                A
-              </div>
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white"></span>
-            </div>
+            <AccountMenu />
 
             {/* Mobile menu trigger */}
             <button

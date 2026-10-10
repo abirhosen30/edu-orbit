@@ -6,16 +6,25 @@ import MetricCards from "@/components/MetricCards";
 import UniversityMatchCard from "@/components/UniversityMatchCard";
 import SidebarWidgets from "@/components/SidebarWidgets";
 import DashboardFooter from "@/components/DashboardFooter";
+import { universitiesData } from "@/data/universities";
 import {
   initialMetricData,
   sampleMatchedUniversities,
   sampleVerificationAlerts,
   sampleReadinessChecklist,
   sampleExchangeRates,
-  UniversityMatch,
 } from "@/data/matchedUniversities";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+
+const emptyShortlist: string[] = [];
 
 export default function EligibilityDashboardClient() {
+  const [shortlistedIds, setShortlistedIds, shortlistError] = useBrowserStorage(
+    "eduorbit_university_shortlist",
+    emptyShortlist
+  );
+  const [shortlistWriteError, setShortlistWriteError] = useState("");
+
   // Navigation & SubTab state
   const [activeSubTab, setActiveSubTab] = useState("overview");
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,10 +45,34 @@ export default function EligibilityDashboardClient() {
   // Sort state
   const [sortBy, setSortBy] = useState<"match" | "rank" | "name">("match");
 
-  // Shortlist tracking (start with 6 simulated shortlisted items, including Georgia Tech if desired)
-  const [shortlistedIds, setShortlistedIds] = useState<string[]>([]);
-  const baseShortlistCount = 6;
-  const currentShortlistCount = baseShortlistCount + shortlistedIds.length;
+  const savedUniversities = useMemo(
+    () => shortlistedIds.flatMap((id) => {
+      const matchedUniversity = sampleMatchedUniversities.find(
+        (university) => university.id === id
+      );
+      if (matchedUniversity) {
+        return [{
+          id: matchedUniversity.id,
+          name: matchedUniversity.name,
+          shortName: matchedUniversity.shortName,
+          location: matchedUniversity.location,
+        }];
+      }
+
+      const directoryUniversity = universitiesData.find(
+        (university) => university.id === id
+      );
+      return directoryUniversity
+        ? [{
+            id: directoryUniversity.id,
+            name: directoryUniversity.name,
+            shortName: directoryUniversity.shortName,
+            location: `${directoryUniversity.city}, ${directoryUniversity.country}`,
+          }]
+        : [];
+    }),
+    [shortlistedIds]
+  );
 
   // Modals
   const [showMoreFiltersModal, setShowMoreFiltersModal] = useState(false);
@@ -47,9 +80,18 @@ export default function EligibilityDashboardClient() {
 
   // Toggle Shortlist action
   const handleToggleShortlist = (id: string) => {
-    setShortlistedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
+    try {
+      setShortlistedIds((current) =>
+        current.includes(id)
+          ? current.filter((item) => item !== id)
+          : [...current, id]
+      );
+      setShortlistWriteError("");
+    } catch {
+      setShortlistWriteError(
+        "Could not update your saved shortlist. Please check browser storage settings."
+      );
+    }
   };
 
   // Filtered and Sorted Universities
@@ -108,7 +150,9 @@ export default function EligibilityDashboardClient() {
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col font-sans antialiased">
       {/* 1. Header with primary nav & secondary sub-tab bar */}
       <EligibilityNavbar
-        shortlistCount={currentShortlistCount}
+        shortlistCount={shortlistedIds.length}
+        savedUniversities={savedUniversities}
+        onRemoveSavedUniversity={handleToggleShortlist}
         activeSubTab={activeSubTab}
         onSubTabChange={(tab) => setActiveSubTab(tab)}
         searchQuery={searchQuery}
@@ -288,6 +332,15 @@ export default function EligibilityDashboardClient() {
 
             {/* University Cards List */}
             <div className="space-y-4">
+              {shortlistError || shortlistWriteError ? (
+                <p
+                  role="alert"
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+                >
+                  {shortlistWriteError || shortlistError}
+                </p>
+              ) : null}
+
               {filteredUniversities.length > 0 ? (
                 filteredUniversities.map((uni) => (
                   <UniversityMatchCard

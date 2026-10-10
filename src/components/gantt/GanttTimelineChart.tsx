@@ -4,17 +4,20 @@ import { useState } from "react";
 import {
   ganttColumnsData,
   ganttUniversityGroupsData,
-  GanttUniversityGroup,
 } from "@/data/ganttData";
 
 interface GanttTimelineChartProps {
   selectedCategory?: string;
+  searchQuery?: string;
+  timeUnit?: "Weeks" | "Months" | "Quarterly";
   onEditMilestone?: (milestoneId: string) => void;
   onConfigureTimezones?: () => void;
 }
 
 export default function GanttTimelineChart({
   selectedCategory = "All Tracks",
+  searchQuery = "",
+  timeUnit = "Weeks",
   onEditMilestone,
   onConfigureTimezones,
 }: GanttTimelineChartProps) {
@@ -29,37 +32,106 @@ export default function GanttTimelineChart({
   };
 
   // Filter university groups & milestones based on active category
-  const filteredGroups = ganttUniversityGroupsData.map((group) => {
-    if (selectedCategory === "All Tracks (4)" || selectedCategory === "All Tracks") {
-      return group;
-    }
-    const filteredMilestones = group.milestones.filter(
-      (m) => m.category === selectedCategory
+  const filteredGroups = ganttUniversityGroupsData
+    .map((group) => {
+      const groupMatchesSearch = `${group.name} ${group.subTag}`
+        .toLowerCase()
+        .includes(searchQuery.trim().toLowerCase());
+      const filteredMilestones = group.milestones.filter((milestone) => {
+        const matchesCategory =
+          selectedCategory === "All Tracks (4)" ||
+          selectedCategory === "All Tracks" ||
+          milestone.category === selectedCategory;
+        const matchesSearch =
+          !searchQuery.trim() ||
+          groupMatchesSearch ||
+          `${milestone.name} ${milestone.barLabel} ${milestone.category}`
+            .toLowerCase()
+            .includes(searchQuery.trim().toLowerCase());
+        return matchesCategory && matchesSearch;
+      });
+      return { ...group, milestones: filteredMilestones };
+    })
+    .filter((group) => group.milestones.length > 0);
+
+  const columnGroups =
+    timeUnit === "Weeks"
+      ? ganttColumnsData.map((column, index) => ({
+          id: column.id,
+          label: column.label,
+          sublabel: column.sublabel,
+          isToday: column.isToday,
+          originalIndexes: [index],
+        }))
+      : timeUnit === "Months"
+        ? [
+            { id: "oct-2024", label: "Oct 2024", sublabel: "Closed", isToday: false, originalIndexes: [0] },
+            { id: "nov-2024", label: "Nov 2024", sublabel: "Weeks 1–4", isToday: true, originalIndexes: [1, 2, 3, 4] },
+            { id: "dec-2024", label: "Dec 2024", sublabel: "Weeks 1–4", isToday: false, originalIndexes: [5, 6] },
+            { id: "jan-2025", label: "Jan 2025", sublabel: "Portal Opens", isToday: false, originalIndexes: [7] },
+            { id: "feb-2025", label: "Feb 2025", sublabel: "Final Interviews", isToday: false, originalIndexes: [8] },
+            { id: "mar-2025", label: "Mar 2025", sublabel: "Admissions", isToday: false, originalIndexes: [9] },
+            { id: "may-2025", label: "May 2025", sublabel: "TUM Cutoff", isToday: false, originalIndexes: [10] },
+          ]
+        : [
+            { id: "q4-2024", label: "Q4 2024", sublabel: "Oct–Dec", isToday: true, originalIndexes: [0, 1, 2, 3, 4, 5, 6] },
+            { id: "q1-2025", label: "Q1 2025", sublabel: "Jan–Mar", isToday: false, originalIndexes: [7, 8, 9] },
+            { id: "q2-2025", label: "Q2 2025", sublabel: "Apr–Jun", isToday: false, originalIndexes: [10] },
+          ];
+
+  const todayColumnIndex = Math.max(
+    0,
+    columnGroups.findIndex((group) =>
+      group.originalIndexes.some((index) => ganttColumnsData[index]?.isToday)
+    )
+  );
+  const totalMilestones = filteredGroups.reduce(
+    (count, group) => count + group.milestones.length,
+    0
+  );
+  const minimumWidth =
+    timeUnit === "Weeks" ? "1100px" : timeUnit === "Months" ? "900px" : "700px";
+
+  const mapBarRange = (startIndex: number, span: number) => {
+    const firstColumn = columnGroups.findIndex((group) =>
+      group.originalIndexes.includes(startIndex)
+    );
+    const lastOriginalIndex = Math.min(
+      ganttColumnsData.length - 1,
+      startIndex + span - 1
+    );
+    const lastColumn = columnGroups.findIndex((group) =>
+      group.originalIndexes.includes(lastOriginalIndex)
     );
     return {
-      ...group,
-      milestones: filteredMilestones,
+      start: Math.max(0, firstColumn) + 1,
+      span: Math.max(1, lastColumn - firstColumn + 1),
     };
-  }).filter((group) => group.milestones.length > 0);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-gray-200/90 shadow-2xs overflow-hidden">
       {/* Scrollable Timeline Grid Container */}
       <div className="overflow-x-auto relative">
-        <div className="min-w-[1100px] text-xs">
+        <div className="text-xs" style={{ minWidth: minimumWidth }}>
           {/* 1. HEADER ROW: Columns and Dates */}
-          <div className="grid grid-cols-12 border-b border-gray-200 bg-slate-50/80 font-bold text-gray-700 select-none sticky top-0 z-20">
+          <div
+            className="grid border-b border-gray-200 bg-slate-50/80 font-bold text-gray-700 select-none sticky top-0 z-20"
+            style={{ gridTemplateColumns: "minmax(0, 25%) minmax(0, 75%)" }}
+          >
             {/* Left hierarchy header */}
-            <div className="col-span-3 p-3 flex items-center justify-between border-r border-gray-200">
+            <div className="p-3 flex items-center justify-between border-r border-gray-200 gap-2">
               <span className="text-gray-900 font-black">Program &amp; Milestone Hierarchy</span>
-              <span className="text-[10px] font-bold bg-gray-200/80 text-gray-600 px-1.5 py-0.5 rounded">
-                11 Items
+              <span className="text-[10px] font-bold bg-gray-200/80 text-gray-600 px-1.5 py-0.5 rounded shrink-0">
+                {totalMilestones} Items
               </span>
             </div>
 
-            {/* 11 Date Columns */}
-            <div className="col-span-9 grid grid-cols-11 text-center text-[10px]">
-              {ganttColumnsData.map((col) => (
+            <div
+              className="grid text-center text-[10px]"
+              style={{ gridTemplateColumns: `repeat(${columnGroups.length}, minmax(0, 1fr))` }}
+            >
+              {columnGroups.map((col) => (
                 <div
                   key={col.id}
                   className={`py-2 px-1 border-r border-gray-200 flex flex-col justify-center relative ${
@@ -77,7 +149,7 @@ export default function GanttTimelineChart({
                   {col.isToday && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-30">
                       <span className="bg-rose-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded shadow-2xs whitespace-nowrap">
-                        Today: Nov 06
+                        Today
                       </span>
                     </div>
                   )}
@@ -92,7 +164,7 @@ export default function GanttTimelineChart({
             <div
               className="absolute top-0 bottom-0 pointer-events-none z-10"
               style={{
-                left: "calc(25% + (75% / 11) * 2 - 1px)", // Aligned with Nov W2 column
+                left: `calc(25% + (75% / ${columnGroups.length}) * ${todayColumnIndex} - 1px)`,
                 width: "2px",
                 backgroundColor: "#E11D48",
               }}
@@ -104,11 +176,14 @@ export default function GanttTimelineChart({
               return (
                 <div key={group.id} className="divide-y divide-gray-50">
                   {/* University Group Header Bar */}
-                  <div
+                  <button
+                    type="button"
                     onClick={() => toggleGroup(group.id)}
-                    className="grid grid-cols-12 bg-slate-50/60 hover:bg-slate-100/70 transition-colors cursor-pointer font-bold select-none py-2 px-3 items-center"
+                    className="w-full grid bg-slate-50/60 hover:bg-slate-100/70 transition-colors cursor-pointer font-bold select-none py-2 px-3 items-center text-left"
+                    style={{ gridTemplateColumns: "minmax(0, 1fr)" }}
+                    aria-expanded={!isCollapsed}
                   >
-                    <div className="col-span-12 flex items-center justify-between">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div
                           className={`w-6 h-6 rounded ${group.iconBg} ${group.iconColor} font-black text-[10px] flex items-center justify-center shrink-0`}
@@ -126,17 +201,18 @@ export default function GanttTimelineChart({
                         {isCollapsed ? "▸" : "▾"}
                       </span>
                     </div>
-                  </div>
+                  </button>
 
                   {/* Milestone Rows inside this University */}
                   {!isCollapsed &&
                     group.milestones.map((m) => (
                       <div
                         key={m.id}
-                        className="grid grid-cols-12 hover:bg-slate-50/50 transition-colors items-center min-h-[46px]"
+                        className="grid hover:bg-slate-50/50 transition-colors items-center min-h-[46px]"
+                        style={{ gridTemplateColumns: "minmax(0, 25%) minmax(0, 75%)" }}
                       >
                         {/* Left column: Milestone name & badge */}
-                        <div className="col-span-3 p-2.5 border-r border-gray-100 flex items-center justify-between gap-2">
+                        <div className="p-2.5 border-r border-gray-100 flex items-center justify-between gap-2 min-w-0">
                           <div className="flex items-center gap-1.5 min-w-0">
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 ${
@@ -170,10 +246,16 @@ export default function GanttTimelineChart({
                         </div>
 
                         {/* Right 9 columns: Gantt Bar visualization */}
-                        <div className="col-span-9 grid grid-cols-11 h-full items-center relative px-1">
+                        <div
+                          className="grid h-full items-center relative px-1"
+                          style={{ gridTemplateColumns: `repeat(${columnGroups.length}, minmax(0, 1fr))` }}
+                        >
                           {/* Background cell grid guidelines */}
-                          <div className="absolute inset-0 grid grid-cols-11 pointer-events-none">
-                            {ganttColumnsData.map((c) => (
+                          <div
+                            className="absolute inset-0 grid pointer-events-none"
+                            style={{ gridTemplateColumns: `repeat(${columnGroups.length}, minmax(0, 1fr))` }}
+                          >
+                            {columnGroups.map((c) => (
                               <div
                                 key={c.id}
                                 className={`border-r border-gray-100/80 h-full ${
@@ -186,10 +268,13 @@ export default function GanttTimelineChart({
                           {/* Render the Milestone Bar based on startColIndex and spanCols */}
                           <div
                             className="relative z-10"
-                            style={{
-                              gridColumnStart: m.startColIndex + 1,
-                              gridColumnEnd: `span ${m.spanCols}`,
-                            }}
+                            style={(() => {
+                              const range = mapBarRange(m.startColIndex, m.spanCols);
+                              return {
+                                gridColumnStart: range.start,
+                                gridColumnEnd: `span ${range.span}`,
+                              };
+                            })()}
                           >
                             {/* CASE 1: Stanford Essay Double-Bar (Video Review + 9d left) */}
                             {m.id === "su-kh-essay" ? (

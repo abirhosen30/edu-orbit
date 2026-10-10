@@ -1,12 +1,33 @@
 'use client';
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import EligibilityNavbar from "@/components/EligibilityNavbar";
 import DashboardFooter from "@/components/DashboardFooter";
 import GanttTimelineChart from "./GanttTimelineChart";
 import ConflictDetectorWidget from "./ConflictDetectorWidget";
 import MilestoneProgressWidget from "./MilestoneProgressWidget";
+import { useBrowserStorage } from "@/lib/useBrowserStorage";
+import { ganttUniversityGroupsData } from "@/data/ganttData";
+import { sampleMatchedUniversities } from "@/data/matchedUniversities";
+
+type GanttCategory =
+  | "Fellowships & Grants"
+  | "Portal Cutoffs"
+  | "VPD / Verifications"
+  | "Recommendations (LORs)";
+
+interface CustomGanttMilestone {
+  id: string;
+  universityId: string;
+  universityName: string;
+  title: string;
+  category: GanttCategory;
+  deadline: string;
+}
+
+const emptyCustomMilestones: CustomGanttMilestone[] = [];
+const emptyShortlist: string[] = [];
 
 export default function GanttDashboardClient() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,6 +39,23 @@ export default function GanttDashboardClient() {
   const [showAddMilestoneModal, setShowAddMilestoneModal] = useState(false);
   const [showSanityModal, setShowSanityModal] = useState(false);
   const [showTimezoneModal, setShowTimezoneModal] = useState(false);
+  const [customMilestones, setCustomMilestones, storageError] = useBrowserStorage(
+    "eduorbit_custom_gantt_milestones",
+    emptyCustomMilestones
+  );
+  const [shortlistedIds, setShortlistedIds, shortlistStorageError] =
+    useBrowserStorage("eduorbit_university_shortlist", emptyShortlist);
+  const savedUniversities = sampleMatchedUniversities.filter((university) =>
+    shortlistedIds.includes(university.id)
+  );
+  const [newMilestoneUniversity, setNewMilestoneUniversity] = useState(
+    ganttUniversityGroupsData[0]?.id ?? ""
+  );
+  const [newMilestoneTitle, setNewMilestoneTitle] = useState("");
+  const [newMilestoneCategory, setNewMilestoneCategory] =
+    useState<GanttCategory>("Fellowships & Grants");
+  const [newMilestoneDeadline, setNewMilestoneDeadline] = useState("");
+  const [milestoneError, setMilestoneError] = useState("");
 
   const trackCategories = [
     "All Tracks (4)",
@@ -26,12 +64,76 @@ export default function GanttDashboardClient() {
     "VPD / Verifications",
     "Recommendations (LORs)",
   ];
+  const filteredCustomMilestones = customMilestones.filter((milestone) => {
+    const matchesCategory =
+      activeTrackCategory === "All Tracks (4)" ||
+      milestone.category === activeTrackCategory;
+    const matchesSearch =
+      !searchQuery.trim() ||
+      `${milestone.title} ${milestone.universityName} ${milestone.category}`
+        .toLowerCase()
+        .includes(searchQuery.trim().toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
+
+  const handleAddMilestone = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const university = ganttUniversityGroupsData.find(
+      (group) => group.id === newMilestoneUniversity
+    );
+    if (!university || !newMilestoneTitle.trim() || !newMilestoneDeadline) {
+      setMilestoneError("Choose a university, enter a task title, and select a deadline.");
+      return;
+    }
+
+    try {
+      setCustomMilestones((current) => [
+        ...current,
+        {
+          id: `custom-${Date.now()}`,
+          universityId: university.id,
+          universityName: university.name,
+          title: newMilestoneTitle.trim(),
+          category: newMilestoneCategory,
+          deadline: newMilestoneDeadline,
+        },
+      ]);
+      setNewMilestoneTitle("");
+      setNewMilestoneDeadline("");
+      setMilestoneError("");
+      setShowAddMilestoneModal(false);
+    } catch {
+      setMilestoneError("Could not save the milestone in this browser. Check storage settings and try again.");
+    }
+  };
+
+  const handleRemoveMilestone = (milestoneId: string) => {
+    try {
+      setCustomMilestones((current) =>
+        current.filter((milestone) => milestone.id !== milestoneId)
+      );
+      setMilestoneError("");
+    } catch {
+      setMilestoneError("Could not remove the milestone. Check browser storage settings and try again.");
+    }
+  };
+
+  const handleRemoveShortlist = (id: string) => {
+    try {
+      setShortlistedIds((current) => current.filter((savedId) => savedId !== id));
+      setMilestoneError("");
+    } catch {
+      setMilestoneError("Could not update your university shortlist. Check browser storage settings and try again.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col font-sans antialiased">
       {/* 1. Header with primary nav & secondary sub-tab bar */}
       <EligibilityNavbar
-        shortlistCount={4}
+        shortlistCount={shortlistedIds.length}
+        savedUniversities={savedUniversities}
+        onRemoveSavedUniversity={handleRemoveShortlist}
         activeSubTab="deadlines"
         searchQuery={searchQuery}
         onSearchChange={(q) => setSearchQuery(q)}
@@ -222,8 +324,74 @@ export default function GanttDashboardClient() {
         {/* Main Gantt Timeline Matrix Chart */}
         <GanttTimelineChart
           selectedCategory={activeTrackCategory}
+          searchQuery={searchQuery}
+          timeUnit={timeUnit}
           onConfigureTimezones={() => setShowTimezoneModal(true)}
         />
+
+        <section
+          aria-labelledby="custom-milestones-heading"
+          className="rounded-xl border border-gray-200 bg-white p-4 shadow-2xs sm:p-5"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-3">
+            <div>
+              <h2
+                id="custom-milestones-heading"
+                className="text-sm font-extrabold text-gray-900"
+              >
+                My Custom Milestones
+              </h2>
+              <p className="mt-1 text-xs text-gray-500">
+                Your added timeline tasks are saved in this browser.
+              </p>
+            </div>
+            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700">
+              {filteredCustomMilestones.length} shown
+            </span>
+          </div>
+          {storageError || shortlistStorageError || milestoneError ? (
+            <p role="alert" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {milestoneError || storageError || shortlistStorageError}
+            </p>
+          ) : null}
+          {filteredCustomMilestones.length ? (
+            <ul className="space-y-2">
+              {filteredCustomMilestones.map((milestone) => (
+                <li
+                  key={milestone.id}
+                  className="flex flex-col gap-2 rounded-lg border border-gray-100 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-gray-900">
+                      {milestone.title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      {milestone.universityName} · {milestone.category} ·{" "}
+                      {new Date(`${milestone.deadline}T12:00:00`).toLocaleDateString(
+                        undefined,
+                        { year: "numeric", month: "short", day: "numeric" }
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMilestone(milestone.id)}
+                    className="self-start rounded-md px-2.5 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 sm:self-auto"
+                    aria-label={`Remove milestone ${milestone.title}`}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-4 text-center text-sm text-gray-500">
+              {customMilestones.length
+                ? "No custom milestones match the current search or track filter."
+                : "No custom milestones yet. Add one to keep your application plan on track."}
+            </p>
+          )}
+        </section>
 
         {/* Bottom 2-Column Section: Conflict Detector & Milestone Progress */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
@@ -409,22 +577,23 @@ export default function GanttDashboardClient() {
             </div>
 
             <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                alert("Milestone added to your Gantt timeline!");
-                setShowAddMilestoneModal(false);
-              }}
+              onSubmit={handleAddMilestone}
               className="space-y-3 text-xs"
             >
               <div>
                 <label className="font-bold text-gray-700 block mb-1">
                   University / Track
                 </label>
-                <select className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800 bg-white">
-                  <option>Stanford University (MS CS + KH)</option>
-                  <option>Georgia Tech (MS CS)</option>
-                  <option>TU Munich (TUM) (M.Sc. Informatics)</option>
-                  <option>University of Michigan (MSI)</option>
+                <select
+                  value={newMilestoneUniversity}
+                  onChange={(event) => setNewMilestoneUniversity(event.target.value)}
+                  className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800 bg-white"
+                >
+                  {ganttUniversityGroupsData.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.subTag})
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -435,6 +604,8 @@ export default function GanttDashboardClient() {
                 <input
                   type="text"
                   required
+                  value={newMilestoneTitle}
+                  onChange={(event) => setNewMilestoneTitle(event.target.value)}
                   placeholder="e.g. Video Statement Final Cut"
                   className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800"
                 />
@@ -444,11 +615,18 @@ export default function GanttDashboardClient() {
                 <label className="font-bold text-gray-700 block mb-1">
                   Category Track
                 </label>
-                <select className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800 bg-white">
-                  <option>Fellowships &amp; Grants</option>
-                  <option>Portal Cutoffs</option>
-                  <option>VPD / Verifications</option>
-                  <option>Recommendations (LORs)</option>
+                <select
+                  value={newMilestoneCategory}
+                  onChange={(event) =>
+                    setNewMilestoneCategory(event.target.value as GanttCategory)
+                  }
+                  className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800 bg-white"
+                >
+                  {trackCategories.slice(1).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -458,9 +636,18 @@ export default function GanttDashboardClient() {
                 </label>
                 <input
                   type="date"
+                  required
+                  value={newMilestoneDeadline}
+                  onChange={(event) => setNewMilestoneDeadline(event.target.value)}
                   className="w-full border border-gray-200 rounded-lg p-2 text-xs text-gray-800"
                 />
               </div>
+
+              {milestoneError ? (
+                <p role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  {milestoneError}
+                </p>
+              ) : null}
 
               <div className="flex justify-end gap-2 pt-3 border-t">
                 <button

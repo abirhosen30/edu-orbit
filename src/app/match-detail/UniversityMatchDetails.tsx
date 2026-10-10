@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MatchDetailNavbar from "@/components/MatchDetailNavbar";
 import Footer from "@/components/Footer";
+import UniversityAccessGate from "@/components/UniversityAccessGate";
 import type { University } from "@/data/universities";
 
 type UniversityMatchDetailsProps = {
@@ -16,6 +17,9 @@ export default function UniversityMatchDetails({
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col font-sans">
       <MatchDetailNavbar />
 
+      <UniversityAccessGate
+        returnTo={`/match-detail?university=${encodeURIComponent(university.id)}`}
+      >
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         <nav
           aria-label="Breadcrumbs"
@@ -325,6 +329,7 @@ export default function UniversityMatchDetails({
           </aside>
         </div>
       </main>
+      </UniversityAccessGate>
 
       <Footer />
     </div>

@@ -3,6 +3,7 @@ import HeroSection from "@/components/HeroSection";
 import JourneySection from "@/components/JourneySection";
 import ScholarshipsSection from "@/components/ScholarshipsSection";
 import UniversitiesSection from "@/components/UniversitiesSection";
+import StudentResourcesSection from "@/components/StudentResourcesSection";
 import ComparisonSection from "@/components/ComparisonSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import CTASection from "@/components/CTASection";
@@ -17,6 +18,7 @@ export default function HomePage() {
       <JourneySection />
       <ScholarshipsSection />
       <UniversitiesSection />
+      <StudentResourcesSection />
       <ComparisonSection />
       <TestimonialsSection />
       <CTASection />

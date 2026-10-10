@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import MatchDetailNavbar from "@/components/MatchDetailNavbar";
 import Footer from "@/components/Footer";
+import UniversityAccessGate from "@/components/UniversityAccessGate";
 import { universitiesData } from "@/data/universities";
 import UniversityMatchDetails from "./UniversityMatchDetails";
 
@@ -28,10 +29,14 @@ export default async function MatchDetailPage({
     return <UniversityMatchDetails university={university} />;
   }
 
+  const returnTo = university
+    ? `/match-detail?university=${encodeURIComponent(university.id)}`
+    : "/match-detail";
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-gray-900 flex flex-col font-sans">
       <MatchDetailNavbar />
 
+      <UniversityAccessGate returnTo={returnTo}>
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Breadcrumbs */}
         <nav
@@ -755,6 +760,7 @@ export default async function MatchDetailPage({
           </div>
         </div>
       </main>
+      </UniversityAccessGate>
 
       <Footer />
     </div>
